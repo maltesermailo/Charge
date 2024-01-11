@@ -1,6 +1,6 @@
-use crate::config;
+use crate::{Cli, config};
 
-pub fn daemon_main() {
+pub fn daemon_main(cmd: Cli) {
     let config = config::load_config();
 
     println!("Starting Charge daemon...");

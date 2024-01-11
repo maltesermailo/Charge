@@ -9,23 +9,24 @@ mod supervisor;
 
 #[derive(Parser)]
 #[command(version)]
-struct Cli {
+pub struct Cli {
     //Whether to run in daemon mode or immediate supervisor mode
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
-    daemon: bool
+    daemon: bool,
 
     //The next arguments are ignored on daemon mode
-
+    #[arg(long, help = "File descriptor ID of Seccomp channel for supervisor mode")]
+    fd: u32
 }
 
 fn main() {
     let cli = Cli::parse();
 
     if cli.daemon {
-        daemon_main()
+        daemon_main(cli)
         //Switch into daemon.rs
     } else {
         //Switch into supervisor.rs and parse rest arguments
-        supervisor_main()
+        supervisor_main(cli)
     }
 }
