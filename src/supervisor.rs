@@ -1,5 +1,6 @@
 mod log_writer;
 mod listener;
+mod event;
 
 use std::os::fd::{RawFd};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,7 +16,7 @@ use tokio::signal::unix::{signal, SignalKind};
 pub fn supervisor_main(cmd: Cli) {
     println!("Running in supervisor mode!");
 
-    let _raw_fd: RawFd = cmd.fd as RawFd;
+    let raw_fd: RawFd = cmd.fd as RawFd;
     let mut notif_sizes: seccomp_notif_sizes = seccomp_notif_sizes {
         seccomp_notif: 0,
         seccomp_notif_resp: 0,
@@ -59,7 +60,7 @@ pub fn supervisor_main(cmd: Cli) {
         }
     });
 
-    listener_thread_main(tx);
+    listener_thread_main(tx, running, raw_fd);
 
     println!("Shutting down supervisor...");
 }
