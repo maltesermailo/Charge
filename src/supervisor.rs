@@ -23,7 +23,7 @@ pub fn supervisor_main(cmd: Cli) {
         seccomp_data: 0,
     };
 
-    let mut stream = signal(SignalKind::terminate());
+    let mut stream = signal(SignalKind::terminate()).unwrap();
 
     unsafe {
         let raw_notif_sizes = &mut notif_sizes as *mut seccomp_notif_sizes;
@@ -48,11 +48,11 @@ pub fn supervisor_main(cmd: Cli) {
 
     //Spawn log writer thread
     thread::spawn(move || async {
-        log_write_thread_main(rx, running_log_write).await;
+        log_write_thread_main(rx, running_log_write);
     });
 
     //Spawn signal thread for systemd
-    thread::spawn(move || async {
+    thread::spawn(move || async move {
         loop {
             stream.recv().await;
 

@@ -19,7 +19,15 @@ ioctl_write_ptr!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp)
 pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
     while running.load(Ordering::SeqCst) {
         let mut seccomp_notif = seccomp_notif {
-          ..Default::default()
+            id: 0,
+            pid: 0,
+            flags: 0,
+            data: seccomp_data {
+                nr: 0,
+                arch: 0,
+                instruction_pointer: 0,
+                args: Default::default(),
+            },
         };
 
         unsafe {
