@@ -47,12 +47,12 @@ pub fn supervisor_main(cmd: Cli) {
     let running_signal = Arc::clone(&running);
 
     //Spawn log writer thread
-    thread::spawn(move || {
-        log_write_thread_main(rx, running_log_write);
+    thread::spawn(move || async {
+        log_write_thread_main(rx, running_log_write).await;
     });
 
     //Spawn signal thread for systemd
-    thread::spawn(async move || {
+    thread::spawn(move || async {
         loop {
             stream.recv().await;
 
