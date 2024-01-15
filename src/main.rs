@@ -13,6 +13,8 @@ pub struct Cli {
     //Whether to run in daemon mode or immediate supervisor mode
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     daemon: bool,
+    #[arg(long, action = clap::ArgAction::SetTrue)]
+    test: bool,
 
     //The next arguments are ignored on daemon mode
     #[arg(long, help = "File descriptor ID of Seccomp channel for supervisor mode")]
