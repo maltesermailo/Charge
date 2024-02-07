@@ -1,3 +1,5 @@
+mod container;
+
 use std::ffi::CString;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
@@ -11,11 +13,13 @@ use nix::unistd::{dup, execvp, fork, ForkResult};
 
 fn receive_fd(unix_stream: &UnixStream) -> nix::Result<RawFd> {
     let mut fd = unix_stream.as_raw_fd();
-    let mut buf = [0u8; 1024];
+    let mut buf = vec![0u8; 32768];
     let mut iov = [IoVec::from_mut_slice(&mut buf)];
     let mut cmsg_space = cmsg_space!([RawFd; 2]);
 
     let msg = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
+
+    buf.truncate(msg.bytes + 1);
 
     for cmsg in msg.cmsgs() {
         if let ControlMessageOwned::ScmRights(fd) = cmsg {
@@ -61,7 +65,7 @@ pub fn daemon_main(cmd: Cli) {
 
     let unix_addr = UnixAddr::new(&config.socket_path)?;
 
-    let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
+    //let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
 
     let stream = UnixStream::connect(unix_addr.path());
     match stream {
@@ -83,6 +87,7 @@ pub fn daemon_main(cmd: Cli) {
         }
     }
 
+    //Maybe socket for CLI
     /*match result_socket {
         Ok(socket) => {
             let error = bind(socket.as_raw_fd(), &unix_addr).err();
