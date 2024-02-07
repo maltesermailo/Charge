@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 use crate::{Cli, config};
@@ -6,6 +7,7 @@ use nix::sys::socket::socket;
 use nix::cmsg_space;
 use nix::errno::Errno;
 use nix::libc::{iovec as IoVec};
+use nix::unistd::{dup, execvp, fork, ForkResult};
 
 fn receive_fd(unix_stream: &UnixStream) -> nix::Result<RawFd> {
     let mut fd = unix_stream.as_raw_fd();
@@ -22,6 +24,33 @@ fn receive_fd(unix_stream: &UnixStream) -> nix::Result<RawFd> {
     }
 
     Err(nix::Error::Sys(Errno::ENODATA))
+}
+
+fn fork_and_run(fd: RawFd) {
+    match std::env::current_exe() {
+        Ok(exe_path) => unsafe {
+            let dup_fd = dup(fd)?;
+
+            let fork_result = fork();
+
+            if let Err(e) = fork_result {
+                panic!("Couldn't fork process {}", e);
+            }
+
+            match fork_result.unwrap() {
+                ForkResult::Parent { child, .. } => {
+                    return;
+                },
+                ForkResult::Child => {
+                    let cmd = CString::new(exe_path).expect("will not fail");
+                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str())];
+
+                    execvp(&cmd, &args).expect("execvp failed");
+                }
+            }
+        }
+        Err(e) => panic!("Failed to to get exe name {}", e),
+    };
 }
 
 pub fn daemon_main(cmd: Cli) {
@@ -46,7 +75,7 @@ pub fn daemon_main(cmd: Cli) {
                     continue;
                 }
 
-                //START SUPERVISOR
+                fork_and_run(seccompfd.unwrap().as_raw_fd());
             }
         }
         Err(errno) => {
