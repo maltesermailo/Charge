@@ -1,39 +1,60 @@
 mod container;
 
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
+use std::io::IoSliceMut;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
+use std::string::FromUtf8Error;
 use crate::{Cli, config};
-use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, SockFlag, SockType, UnixAddr};
+use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, SockFlag, SockType, UnixAddr};
 use nix::sys::socket::socket;
-use nix::cmsg_space;
+use nix::{cmsg_space, Error};
 use nix::errno::Errno;
-use nix::libc::{iovec as IoVec};
+use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult};
 
-fn receive_fd(unix_stream: &UnixStream) -> nix::Result<RawFd> {
-    let mut fd = unix_stream.as_raw_fd();
+fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
+    let fd = unix_stream.as_raw_fd();
     let mut buf = vec![0u8; 32768];
-    let mut iov = [IoVec::from_mut_slice(&mut buf)];
+    let mut iov = [IoSliceMut::new(&mut buf)];
     let mut cmsg_space = cmsg_space!([RawFd; 2]);
 
-    let msg = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
+    let msg: RecvMsg<'_, '_, UnixAddr> = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
 
-    buf.truncate(msg.bytes + 1);
+    let state = parse_state(&msg);
+
+    if let Err(err) = state {
+        return Err(Error::ENODATA);
+    }
+
+    let state = state.unwrap();
+
+    println!("State {}", &state);
 
     for cmsg in msg.cmsgs() {
         if let ControlMessageOwned::ScmRights(fd) = cmsg {
-            return Ok(fd[0]);
+            return Ok((fd[0], state));
         }
     }
 
-    Err(nix::Error::Sys(Errno::ENODATA))
+    Err(Errno::ENODATA)
+}
+
+fn parse_state(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
+    let bufsize = msg.bytes;
+    let mut buf = vec![0u8; bufsize];
+
+    if bufsize == 4 {
+        return Ok(String::from("12345"));
+    }
+
+    return String::from_utf8(buf);
 }
 
 fn fork_and_run(fd: RawFd) {
     match std::env::current_exe() {
         Ok(exe_path) => unsafe {
-            let dup_fd = dup(fd)?;
+            let dup_fd = dup(fd).unwrap();
 
             let fork_result = fork();
 
@@ -46,8 +67,8 @@ fn fork_and_run(fd: RawFd) {
                     return;
                 },
                 ForkResult::Child => {
-                    let cmd = CString::new(exe_path).expect("will not fail");
-                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str())];
+                    let cmd = CString::new(exe_path.to_str().expect("unless someone fucked up the filesystem, this wont happen")).expect("will not fail");
+                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str()).expect("will not fail")];
 
                     execvp(&cmd, &args).expect("execvp failed");
                 }
@@ -63,11 +84,11 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
-    let unix_addr = UnixAddr::new(&config.socket_path)?;
+    let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
     //let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
 
-    let stream = UnixStream::connect(unix_addr.path());
+    let stream = UnixStream::connect(unix_addr.path().unwrap());
     match stream {
         Ok(stream) => {
             loop {
@@ -79,7 +100,7 @@ pub fn daemon_main(cmd: Cli) {
                     continue;
                 }
 
-                fork_and_run(seccompfd.unwrap().as_raw_fd());
+                fork_and_run(seccompfd.unwrap().0.as_raw_fd());
             }
         }
         Err(errno) => {

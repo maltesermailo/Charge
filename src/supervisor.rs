@@ -16,6 +16,10 @@ use tokio::signal::unix::{signal, SignalKind};
 pub fn supervisor_main(cmd: Cli) {
     println!("Running in supervisor mode!");
 
+    if cmd.fd == 0 {
+        panic!("No file descriptor provided!");
+    }
+
     let raw_fd: RawFd = cmd.fd as RawFd;
     let mut notif_sizes: seccomp_notif_sizes = seccomp_notif_sizes {
         seccomp_notif: 0,
