@@ -7,11 +7,27 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread;
 use nix::libc;
-use nix::libc::{SECCOMP_GET_NOTIF_SIZES, seccomp_notif_sizes, SYS_seccomp};
+use nix::libc::{c_int, SECCOMP_GET_NOTIF_SIZES, seccomp_notif_sizes, SYS_seccomp};
 use crate::Cli;
 use crate::supervisor::listener::listener_thread_main;
 use crate::supervisor::log_writer::log_write_thread_main;
 use tokio::signal::unix::{signal, SignalKind};
+
+#[repr(C)]
+pub struct seccomp_data {
+    pub nr: c_int,
+    pub arch: u32,
+    pub instruction_pointer: u64,
+    pub args: [u64; 6],
+}
+
+#[repr(C)]
+pub struct seccomp_notif {
+    pub id: u64,
+    pub pid: u32,
+    pub flags: u32,
+    pub data: seccomp_data,
+}
 
 pub fn supervisor_main(cmd: Cli) {
     println!("Running in supervisor mode!");
@@ -42,6 +58,7 @@ pub fn supervisor_main(cmd: Cli) {
     println!("SECCOMP NOTIF SIZE: {}", notif_sizes.seccomp_notif);
     println!("SECCOMP NOTIF RESPONSE SIZE: {}", notif_sizes.seccomp_notif_resp);
     println!("SECCOMP NOTIF DATA SIZE: {}", notif_sizes.seccomp_data);
+    println!("RUST NOTIF SIZE: {}", std::mem::size_of::<seccomp_notif>());
 
     //This thread stays on the listener thread and waits for seccomp messages. The other thread will run the log and file writer thread
 

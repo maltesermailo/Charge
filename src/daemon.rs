@@ -10,6 +10,7 @@ use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, l
 use nix::sys::socket::socket;
 use nix::{cmsg_space, Error};
 use nix::errno::Errno;
+use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult};
 
@@ -95,9 +96,11 @@ pub fn daemon_main(cmd: Cli) {
                 let seccompfd = receive_fd(&stream);
 
                 if let Err(errno) = seccompfd {
-                    println!("ENODATA");
-
-                    continue;
+                    if errno == ENODATA {
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
 
                 fork_and_run(seccompfd.unwrap().0.as_raw_fd());

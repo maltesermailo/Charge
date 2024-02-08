@@ -1,6 +1,7 @@
+use std::mem::MaybeUninit;
 use clap::Parser;
 use crate::daemon::daemon_main;
-use crate::supervisor::supervisor_main;
+use crate::supervisor::{seccomp_notif, supervisor_main};
 
 #[path = "config/Config.rs"]
 mod config;
@@ -21,8 +22,13 @@ pub struct Cli {
     fd: u32
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
+
+    let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
+    println!("RUST NOTIF SIZE: {}", std::mem::size_of::<seccomp_notif>());
+    println!("RUST NOTIF ALIGNMENT: {}", std::mem::align_of::<seccomp_notif>());
 
     if cli.daemon {
         daemon_main(cli)
