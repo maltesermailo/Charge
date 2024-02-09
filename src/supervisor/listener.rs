@@ -23,11 +23,9 @@ ioctl_write_ptr!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp)
 pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
     while running.load(Ordering::SeqCst) {
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
-        let layout = Layout::from_size_align(80, mem::align_of::<seccomp_notif>()).expect("Error");
-        let seccomp_test = unsafe { alloc_zeroed(layout) } as *mut seccomp_notif;
 
         unsafe {
-            let result = receive_notif(raw_fd, seccomp_test).unwrap_or_else(|error| {
+            let result = receive_notif(raw_fd, seccomp_notif_uninit.as_mut_ptr()).unwrap_or_else(|error| {
                 println!("Couldn't read notif with error {}", error);
 
                 if error == Errno::ENOTTY {
@@ -38,6 +36,8 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
 
                 return -1;
             });
+
+            println!("Received notif");
 
             if(result == -1) {
                 continue;

@@ -5,6 +5,8 @@ use std::io::IoSliceMut;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::string::FromUtf8Error;
+use std::thread::sleep;
+use std::time::Duration;
 use crate::{Cli, config};
 use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, SockFlag, SockType, UnixAddr};
 use nix::sys::socket::socket;
@@ -29,8 +31,6 @@ fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
     }
 
     let state = state.unwrap();
-
-    println!("State {}", &state);
 
     for cmsg in msg.cmsgs() {
         if let ControlMessageOwned::ScmRights(fd) = cmsg {
@@ -89,25 +89,32 @@ pub fn daemon_main(cmd: Cli) {
 
     //let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
 
-    let stream = UnixStream::connect(unix_addr.path().unwrap());
-    match stream {
-        Ok(stream) => {
-            loop {
-                let seccompfd = receive_fd(&stream);
+    loop {
+        println!("Connecting to socket...");
 
-                if let Err(errno) = seccompfd {
-                    if errno == ENODATA {
-                        continue;
-                    } else {
+        let stream = UnixStream::connect(unix_addr.path().unwrap());
+        match stream {
+            Ok(stream) => {
+                loop {
+                    let seccompfd = receive_fd(&stream);
+
+                    if let Err(errno) = seccompfd {
+                        println!("Error: {}", errno);
+
                         break;
                     }
-                }
 
-                fork_and_run(seccompfd.unwrap().0.as_raw_fd());
+                    let seccompfd = seccompfd.unwrap();
+
+                    println!("State {}", &seccompfd.1);
+
+                    fork_and_run(seccompfd.0.as_raw_fd());
+                }
             }
-        }
-        Err(errno) => {
-            println!("Couldn't create socket, aborting. Error: {}", errno);
+            Err(errno) => {
+                println!("Couldn't create socket, retrying in 5s. Error: {}", errno);
+                sleep(Duration::from_secs(5));
+            }
         }
     }
 

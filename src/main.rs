@@ -26,10 +26,6 @@ pub struct Cli {
 async fn main() {
     let cli = Cli::parse();
 
-    let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
-    println!("RUST NOTIF SIZE: {}", std::mem::size_of::<seccomp_notif>());
-    println!("RUST NOTIF ALIGNMENT: {}", std::mem::align_of::<seccomp_notif>());
-
     if cli.daemon {
         daemon_main(cli)
         //Switch into daemon.rs
