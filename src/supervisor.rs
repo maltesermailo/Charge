@@ -12,6 +12,7 @@ use crate::Cli;
 use crate::supervisor::listener::listener_thread_main;
 use crate::supervisor::log_writer::log_write_thread_main;
 use tokio::signal::unix::{signal, SignalKind};
+use crate::supervisor::event::SyscallEvent;
 
 #[repr(C)]
 pub struct seccomp_data {
@@ -68,7 +69,7 @@ pub fn supervisor_main(cmd: Cli) {
     let running_signal = Arc::clone(&running);
 
     //Spawn log writer thread
-    thread::spawn(move || async {
+    thread::spawn(move || {
         log_write_thread_main(rx, running_log_write);
     });
 

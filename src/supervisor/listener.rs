@@ -18,7 +18,7 @@ const SECCOMP_IOCTL_NOTIF_SEND: u8 = 1;
 //SECCOMP_IOCTL_NOTIF_RECV
 ioctl_readwrite!(receive_notif, b'!', SECCOMP_IOCTL_NOTIF_RECV, seccomp_notif);
 //SECCOMP_IOCTL_NOTIF_SEND
-ioctl_write_ptr!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp);
+ioctl_readwrite!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp);
 
 pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
     while running.load(Ordering::SeqCst) {
@@ -57,14 +57,14 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
 
             //Allow syscall
             
-            let seccomp_resp: seccomp_notif_resp = seccomp_notif_resp {
+            let mut seccomp_resp: seccomp_notif_resp = seccomp_notif_resp {
                 id: seccomp_notif.id,
                 val: 0,
                 error: 0,
                 flags: SECCOMP_USER_FLAG_CONTINUE,
             };
 
-            _ = send_notif(raw_fd, &seccomp_resp as *const seccomp_notif_resp).unwrap_or_else(|error| {
+            _ = send_notif(raw_fd, &mut seccomp_resp as *mut seccomp_notif_resp).unwrap_or_else(|error| {
                 println!("Couldn't send notif with error {}", error);
 
                 return -1;

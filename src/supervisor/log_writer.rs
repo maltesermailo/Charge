@@ -1,5 +1,5 @@
 use std::fmt::format;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::ptr::null;
 use std::str::FromStr;
@@ -14,6 +14,11 @@ pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<
     while running_log_write.load(Ordering::SeqCst) {
         let event: SyscallEvent = rx.recv().unwrap();
 
+        if(event.pid == 0) {
+            println!("Received empty pid, heartbeat");
+            continue;
+        }
+
         match file {
             None => {
                 //Init
@@ -22,12 +27,15 @@ pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<
 
                     return String::new();
                 });
-                let mut split_cmdline = cmdline.split(" ");
+                let mut split_cmdline = cmdline.split('\0');
                 let executable = split_cmdline.next().unwrap_or_else(|| {
                     return "nocmdline";
                 });
 
-                file = Some(File::open(format!("/var/log/charge_scmp/process/{}-{}.json", executable, event.pid)).unwrap());
+                let path = format!("/var/log/charge_scmp/process/{}-{}.json", executable, event.pid);
+                println!("{}", path);
+
+                file = Some(OpenOptions::new().create(true).truncate(true).read(true).write(true).open(format!("/var/log/charge_scmp/process/{}-{}.json", executable, event.pid)).unwrap());
             }
             _ => {}
         }
