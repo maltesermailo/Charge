@@ -20,7 +20,11 @@ pub struct Cli {
 
     //The next arguments are ignored on daemon mode
     #[arg(long, help = "File descriptor ID of Seccomp channel for supervisor mode", required = false, default_value = "0")]
-    fd: u32
+    fd: u32,
+    #[arg(long, short, required = false, default_value = "0")]
+    pid: u32,
+    #[arg(long, short, required = false, default_value = "noid")]
+    id: String
 }
 
 #[tokio::main]

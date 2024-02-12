@@ -1,6 +1,6 @@
 mod container;
 
-use std::ffi::{c_void, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::io::IoSliceMut;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
@@ -15,6 +15,7 @@ use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult};
+use crate::daemon::container::{ContainerProcessState, State};
 
 fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
     let fd = unix_stream.as_raw_fd();
@@ -24,7 +25,7 @@ fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
 
     let msg: RecvMsg<'_, '_, UnixAddr> = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
 
-    let state = parse_state(&msg);
+    let state = read_string(&msg);
 
     if let Err(err) = state {
         return Err(Error::ENODATA);
@@ -41,18 +42,36 @@ fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
     Err(Errno::ENODATA)
 }
 
-fn parse_state(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
+fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
     let bufsize = msg.bytes;
     let mut buf = vec![0u8; bufsize];
-
-    if bufsize == 4 {
-        return Ok(String::from("12345"));
-    }
 
     return String::from_utf8(buf);
 }
 
-fn fork_and_run(fd: RawFd) {
+fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
+    let state = serde_json::from_str(state.as_str());
+
+    return state;
+}
+
+fn fork_and_run(fd: RawFd, state: String) {
+    //Parse container state
+    let state = parse_state(state).unwrap_or_else(|err| ContainerProcessState {
+        version: "unknown".to_string(),
+        fds: Default::default(),
+        pid: 0,
+        metadata: Default::default(),
+        state: State {
+            version: "".to_string(),
+            id: Default::default(),
+            status: "".to_string(),
+            pid: 0,
+            bundle: "".to_string(),
+            annotations: Default::default(),
+        },
+    });
+
     match std::env::current_exe() {
         Ok(exe_path) => unsafe {
             let dup_fd = dup(fd).unwrap();
@@ -69,7 +88,7 @@ fn fork_and_run(fd: RawFd) {
                 },
                 ForkResult::Child => {
                     let cmd = CString::new(exe_path.to_str().expect("unless someone fucked up the filesystem, this wont happen")).expect("will not fail");
-                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str()).expect("will not fail")];
+                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str()).unwrap(), CString::new(String::from("--pid=") + state.pid.to_string().as_str()).unwrap(), CString::new(String::from("--id=") + state.state.id.as_str()).expect("will not fail")];
 
                     execvp(&cmd, &args).expect("execvp failed");
                 }
@@ -108,7 +127,7 @@ pub fn daemon_main(cmd: Cli) {
 
                     println!("State {}", &seccompfd.1);
 
-                    fork_and_run(seccompfd.0.as_raw_fd());
+                    fork_and_run(seccompfd.0.as_raw_fd(), seccompfd.1);
                 }
             }
             Err(errno) => {
