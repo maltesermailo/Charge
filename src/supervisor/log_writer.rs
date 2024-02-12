@@ -11,7 +11,7 @@ use serde_json::to_string;
 use crate::supervisor::event::SyscallEvent;
 use crate::utils::remove_first_char;
 
-pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<AtomicBool>) {
+pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, pid: u32, id: String, running_log_write: Arc<AtomicBool>) {
     let mut file: Option<File> = None;
 
     while running_log_write.load(Ordering::SeqCst) {
@@ -51,10 +51,16 @@ pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<
                 let tmp = executable.replace("/", "-");
                 executable = tmp.as_str();
 
-                let path = format!("/var/log/charge_scmp/process/{}-{}.json", executable, event.pid);
+                let mut path = format!("/var/log/charge_scmp/process/{}", executable);
+
+                if(!id.is_empty() && id != "0") {
+                    path.push_str(format!("-{}", id.as_str()).as_str());
+                }
+                path.push_str(format!("-{}.json", event.pid).as_str());
+
                 println!("{}", path);
 
-                file = Some(OpenOptions::new().create(true).truncate(true).read(true).write(true).open(format!("/var/log/charge_scmp/process/{}-{}.json", executable, event.pid)).unwrap());
+                file = Some(OpenOptions::new().create(true).truncate(true).read(true).write(true).open(path).unwrap());
             }
             _ => {}
         }

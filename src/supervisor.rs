@@ -69,9 +69,12 @@ pub fn supervisor_main(cmd: Cli) {
     let running_log_write = Arc::clone(&running);
     let running_signal = Arc::clone(&running);
 
+    let pid = cmd.pid;
+    let id = cmd.id;
+
     //Spawn log writer thread
     thread::spawn(move || {
-        log_write_thread_main(rx, running_log_write);
+        log_write_thread_main(rx, pid, id, running_log_write);
     });
 
     //Spawn signal thread for systemd
