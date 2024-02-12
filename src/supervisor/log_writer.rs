@@ -1,11 +1,14 @@
 use std::fmt::format;
+use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
+use std::io::Write;
 use std::ptr::null;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use serde_json::to_string;
 use crate::supervisor::event::SyscallEvent;
 
 pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<AtomicBool>) {
@@ -40,6 +43,8 @@ pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, running_log_write: Arc<
             _ => {}
         }
 
+        let json = serde_json::to_string(&event).unwrap();
 
+        writeln!(file.as_ref().unwrap(), "{}", json).expect("'Error while writing to log file");
     }
 }

@@ -63,6 +63,8 @@ pub fn supervisor_main(cmd: Cli) {
 
     //This thread stays on the listener thread and waits for seccomp messages. The other thread will run the log and file writer thread
 
+    std::fs::create_dir_all("/var/log/charge_scmp/process/");
+
     let (tx, rx) = mpsc::channel();
     let running = Arc::new(AtomicBool::new(true));
     let running_log_write = Arc::clone(&running);
