@@ -12,7 +12,6 @@ use crate::Cli;
 use crate::supervisor::listener::listener_thread_main;
 use crate::supervisor::log_writer::log_write_thread_main;
 use tokio::signal::unix::{signal, SignalKind};
-use crate::supervisor::event::SyscallEvent;
 
 #[repr(C)]
 pub struct seccomp_data {
@@ -51,7 +50,7 @@ pub fn supervisor_main(cmd: Cli) {
 
         let error = libc::syscall(SYS_seccomp, SECCOMP_GET_NOTIF_SIZES, 0, raw_notif_sizes);
 
-        if(error != 0) {
+        if error != 0 {
             panic!("Error {} at SECCOMP_GET_NOTIF_SIZES syscall", error);
         }
     }
@@ -63,7 +62,7 @@ pub fn supervisor_main(cmd: Cli) {
 
     //This thread stays on the listener thread and waits for seccomp messages. The other thread will run the log and file writer thread
 
-    std::fs::create_dir_all("/var/log/charge_scmp/process/");
+    std::fs::create_dir_all("/var/log/charge_scmp/process/").expect("Error while creating directory");
 
     let (tx, rx) = mpsc::channel();
     let running = Arc::new(AtomicBool::new(true));

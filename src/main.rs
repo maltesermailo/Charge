@@ -7,6 +7,7 @@ use crate::supervisor::{seccomp_notif, supervisor_main};
 mod config;
 mod daemon;
 mod supervisor;
+mod utils;
 
 #[derive(Parser)]
 #[command(version)]

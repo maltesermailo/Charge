@@ -1,5 +1,3 @@
-use std::alloc::{alloc_zeroed, Layout};
-use std::mem;
 use std::mem::MaybeUninit;
 use std::os::fd::RawFd;
 use std::sync::Arc;
@@ -32,14 +30,16 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
                     panic!("no tty");
                 }
 
-                panic!("ERROR");
+                if error == Errno::ENOENT {
+                    return -1;
+                }
 
-                return -1;
+                panic!("ERROR");
             });
 
-            println!("Received notif");
+            //println!("Received notif");
 
-            if(result == -1) {
+            if result == -1 {
                 continue;
             }
 
