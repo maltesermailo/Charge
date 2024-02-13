@@ -92,8 +92,10 @@ fn fork_and_run(fd: RawFd, state: String) {
                 ForkResult::Child => {
                     let mut name = "unknown";
 
-                    if(state.state.annotations.contains_key("io.kubernetes.cri.container-name")) {
-                        name = state.state.annotations.get("io.kubernetes.cri.container-name").unwrap();
+                    println!("{:?}", state);
+
+                    if(state.state.annotations.contains_key("io.kubernetes.cri.sandbox-name")) {
+                        name = state.state.annotations.get("io.kubernetes.cri.sandbox-name").unwrap();
                     }
 
                     let cmd = CString::new(exe_path.to_str().expect("unless someone fucked up the filesystem, this wont happen")).expect("will not fail");

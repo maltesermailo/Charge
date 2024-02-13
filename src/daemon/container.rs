@@ -17,7 +17,7 @@ pub struct State {
     pub annotations: HashMap<String, String>
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ContainerProcessState {
     #[serde(rename = "ociVersion")]
     pub version: String,
