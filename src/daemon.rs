@@ -64,6 +64,8 @@ fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
 }
 
 fn fork_and_run(fd: RawFd, state: String) {
+    let state = state.trim().parse().unwrap();
+
     //Parse container state
     let state = parse_state(state).unwrap_or_else(|err| {
         println!("error parsing state: {}", err);
