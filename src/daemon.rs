@@ -148,14 +148,14 @@ pub fn daemon_main(cmd: Cli) {
 
             let error = listen(&socket, 1);
 
-            if let Some(errno) = error {
+            if let Err(errno) = error {
                 println!("Couldn't listen on socket, aborting. Error: {}", errno);
             }
 
             loop {
                 let sock_result = accept(socket.as_raw_fd());
 
-                if let Some(errno) = sock_result {
+                if let Err(errno) = sock_result {
                     println!("Couldn't listen on socket, aborting. Error: {}", errno);
                 }
 
