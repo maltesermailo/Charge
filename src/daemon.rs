@@ -127,7 +127,7 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
-    let mut signals = SignalsInfo::<WithOrigin>::new(TERM_SIGNALS)?;
+    let mut signals = SignalsInfo::new(TERM_SIGNALS)?;
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
