@@ -5,6 +5,7 @@ use std::io::IoSliceMut;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::string::FromUtf8Error;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use crate::{Cli, config};
@@ -17,8 +18,7 @@ use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult};
 use crate::daemon::container::{ContainerProcessState, State};
 
-fn receive_fd(unix_stream: &UnixStream) -> nix::Result<(RawFd, String)> {
-    let fd = unix_stream.as_raw_fd();
+fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
     let mut buf = vec![0u8; 32768];
     let mut iov = [IoSliceMut::new(&mut buf)];
     let mut cmsg_space = cmsg_space!([RawFd; 2]);
@@ -106,9 +106,9 @@ pub fn daemon_main(cmd: Cli) {
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
-    //let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
+    let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
 
-    loop {
+    /*loop {
         println!("Connecting to socket...");
 
         let stream = UnixStream::connect(unix_addr.path().unwrap());
@@ -135,10 +135,10 @@ pub fn daemon_main(cmd: Cli) {
                 sleep(Duration::from_secs(5));
             }
         }
-    }
+    }*/
 
     //Maybe socket for CLI
-    /*match result_socket {
+    match result_socket {
         Ok(socket) => {
             let error = bind(socket.as_raw_fd(), &unix_addr).err();
 
@@ -159,10 +159,34 @@ pub fn daemon_main(cmd: Cli) {
                     println!("Couldn't listen on socket, aborting. Error: {}", errno);
                 }
 
+                match(sock_result) {
+                    Ok(socket) => {
+                        thread::spawn(move || {
+                            println!("Receiving file descriptor...");
+                            let seccompfd = receive_fd(socket);
+                            println!("Received file descriptor");
+
+                            if let Err(errno) = seccompfd {
+                                println!("Error: {}", errno);
+
+                                return;
+                            }
+
+                            let seccompfd = seccompfd.unwrap();
+
+                            println!("State {}", &seccompfd.1);
+
+                            fork_and_run(seccompfd.0.as_raw_fd(), seccompfd.1);
+                        });
+                    }
+                    Err(errno) => {
+                        println!("Error: {}", errno);
+                    }
+                }
             }
         }
         Err(errno) => {
             println!("Couldn't create socket, aborting. Error: {}", errno);
         }
-    }*/
+    }
 }
