@@ -20,8 +20,8 @@ use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult, unlink};
 use signal_hook::consts::TERM_SIGNALS;
+use signal_hook::iterator::exfiltrator::SignalOnly;
 use signal_hook::iterator::SignalsInfo;
-use signal_hook::iterator::exfiltrator::WithOrigin;
 use tokio::signal::unix::{signal, SignalKind};
 use crate::daemon::container::{ContainerProcessState, State};
 
@@ -127,7 +127,7 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
-    let mut signals = SignalsInfo::new(TERM_SIGNALS).unwrap();
+    let mut signals = SignalsInfo::<SignalOnly>::new(TERM_SIGNALS).unwrap();
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
