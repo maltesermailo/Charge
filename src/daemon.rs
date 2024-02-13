@@ -1,7 +1,7 @@
 mod container;
 
 use std::ffi::{c_void, CStr, CString};
-use std::io::IoSliceMut;
+use std::io::{IoSliceMut, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::string::FromUtf8Error;
@@ -44,6 +44,10 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
 fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
     let bufsize = msg.bytes;
     let mut buf = vec![0u8; bufsize];
+
+    for iov in msg.iovs() {
+        buf.write(iov).expect("Works or abort");
+    }
 
     return String::from_utf8(buf);
 }
