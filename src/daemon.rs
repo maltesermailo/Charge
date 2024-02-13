@@ -9,8 +9,7 @@ use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use crate::{Cli, config};
-use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, SockFlag, SockType, UnixAddr};
-use nix::sys::socket::socket;
+use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, socket, SockFlag, SockType, UnixAddr};
 use nix::{cmsg_space, Error};
 use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
@@ -144,19 +143,22 @@ pub fn daemon_main(cmd: Cli) {
 
             if let Some(errno) = error {
                 println!("Couldn't bind socket, aborting. Error: {}", errno);
+                panic!("error");
             }
 
             let error = listen(&socket, 1);
 
             if let Err(errno) = error {
                 println!("Couldn't listen on socket, aborting. Error: {}", errno);
+                panic!("error");
             }
 
             loop {
                 let sock_result = accept(socket.as_raw_fd());
 
                 if let Err(errno) = sock_result {
-                    println!("Couldn't listen on socket, aborting. Error: {}", errno);
+                    println!("Couldn't accept on socket, aborting. Error: {}", errno);
+                    panic!("test");
                 }
 
                 match(sock_result) {
