@@ -65,19 +65,23 @@ fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
 
 fn fork_and_run(fd: RawFd, state: String) {
     //Parse container state
-    let state = parse_state(state).unwrap_or_else(|err| ContainerProcessState {
-        version: "unknown".to_string(),
-        fds: Default::default(),
-        pid: 0,
-        metadata: Default::default(),
-        state: State {
-            version: "".to_string(),
-            id: Default::default(),
-            status: "".to_string(),
+    let state = parse_state(state).unwrap_or_else(|err| {
+        println!("error parsing state: {}", err);
+
+        ContainerProcessState {
+            version: "unknown".to_string(),
+            fds: Default::default(),
             pid: 0,
-            bundle: "".to_string(),
-            annotations: Default::default(),
-        },
+            metadata: Default::default(),
+            state: State {
+                version: "".to_string(),
+                id: Default::default(),
+                status: "".to_string(),
+                pid: 0,
+                bundle: "".to_string(),
+                annotations: Default::default(),
+            },
+        }
     });
 
     match std::env::current_exe() {
