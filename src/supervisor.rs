@@ -71,10 +71,11 @@ pub fn supervisor_main(cmd: Cli) {
 
     let pid = cmd.pid;
     let id = cmd.id;
+    let containerName = cmd.container_name;
 
     //Spawn log writer thread
     thread::spawn(move || {
-        log_write_thread_main(rx, pid, id, running_log_write);
+        log_write_thread_main(rx, pid, id, containerName, running_log_write);
     });
 
     //Spawn signal thread for systemd

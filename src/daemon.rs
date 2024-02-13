@@ -90,8 +90,14 @@ fn fork_and_run(fd: RawFd, state: String) {
                     return;
                 },
                 ForkResult::Child => {
+                    let mut name = "unknown";
+
+                    if(state.state.annotations.contains_key("io.kubernetes.cri.container-name")) {
+                        name = state.state.annotations.get("io.kubernetes.cri.container-name").unwrap();
+                    }
+
                     let cmd = CString::new(exe_path.to_str().expect("unless someone fucked up the filesystem, this wont happen")).expect("will not fail");
-                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str()).unwrap(), CString::new(String::from("--pid=") + state.pid.to_string().as_str()).unwrap(), CString::new(String::from("--id=") + state.state.id.as_str()).expect("will not fail")];
+                    let args = [cmd.clone(), CString::new(String::from("--fd=") + dup_fd.to_string().as_str()).unwrap(), CString::new(String::from("--pid=") + state.pid.to_string().as_str()).unwrap(), CString::new(String::from("--id=") + state.state.id.as_str()).expect("will not fail"), CString::new(String::from("--containerName=") + name).expect("will not fail either")];
 
                     execvp(&cmd, &args).expect("execvp failed");
                 }

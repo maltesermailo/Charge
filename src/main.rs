@@ -24,7 +24,9 @@ pub struct Cli {
     #[arg(long, short, required = false, default_value = "0")]
     pid: u32,
     #[arg(long, short, required = false, default_value = "noid")]
-    id: String
+    id: String,
+    #[arg(long = "containerName", short, required = true)]
+    container_name: String
 }
 
 #[tokio::main]

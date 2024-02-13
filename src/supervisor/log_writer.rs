@@ -7,11 +7,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use clap::builder::Str;
 use serde_json::to_string;
 use crate::supervisor::event::SyscallEvent;
 use crate::utils::remove_first_char;
 
-pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, pid: u32, id: String, running_log_write: Arc<AtomicBool>) {
+pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, pid: u32, id: String, containerName: String, running_log_write: Arc<AtomicBool>) {
     let mut file: Option<File> = None;
 
     while running_log_write.load(Ordering::SeqCst) {
@@ -51,7 +52,7 @@ pub fn log_write_thread_main(rx: Receiver<SyscallEvent>, pid: u32, id: String, r
                 let tmp = executable.replace("/", "-");
                 executable = tmp.as_str();
 
-                let mut path = format!("/var/log/charge_scmp/process/{}", executable);
+                let mut path = format!("/var/log/charge_scmp/process/{}-{}", containerName, executable);
 
                 if(!id.is_empty() && id != "0") {
                     path.push_str(format!("-{}", id.as_str()).as_str());
