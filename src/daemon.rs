@@ -164,9 +164,9 @@ pub fn daemon_main(cmd: Cli) {
 
     //Spawn signal thread for systemd
     thread::spawn(move || async move {
-        for info in &mut signals {
+        for signal in &mut signals {
             // Will print info about signal + where it comes from.
-            match info.signal {
+            match signal {
                 term_sig => { // These are all the ones left
                     eprintln!("Terminating");
                     unlink(config.socket_path.as_str()).expect("Unlink failed");
