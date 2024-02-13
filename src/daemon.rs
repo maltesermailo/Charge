@@ -167,7 +167,7 @@ pub fn daemon_main(cmd: Cli) {
         for signal in &mut signals {
             // Will print info about signal + where it comes from.
             match signal {
-                term_sig => { // These are all the ones left
+                _ => { // These are all the ones left
                     eprintln!("Terminating");
                     unlink(config.socket_path.as_str()).expect("Unlink failed");
 
