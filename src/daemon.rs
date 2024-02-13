@@ -4,7 +4,11 @@ use std::ffi::{c_void, CStr, CString};
 use std::io::{IoSliceMut, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
+use std::process::exit;
 use std::string::FromUtf8Error;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering::SeqCst;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -14,7 +18,8 @@ use nix::{cmsg_space, Error};
 use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
-use nix::unistd::{dup, execvp, fork, ForkResult};
+use nix::unistd::{dup, execvp, fork, ForkResult, unlink};
+use tokio::signal::unix::{signal, SignalKind};
 use crate::daemon::container::{ContainerProcessState, State};
 
 fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
@@ -115,6 +120,10 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))?;
+
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
     let result_socket = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None);
@@ -166,6 +175,12 @@ pub fn daemon_main(cmd: Cli) {
             }
 
             loop {
+                if(term.load(SeqCst)) {
+                    unlink(&config.socket_path).expect("We're shutting down, so if unlink fails, that's not so bad.");
+
+                    exit(0);
+                }
+
                 let sock_result = accept(socket.as_raw_fd());
 
                 if let Err(errno) = sock_result {
