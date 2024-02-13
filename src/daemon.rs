@@ -176,7 +176,7 @@ pub fn daemon_main(cmd: Cli) {
 
             loop {
                 if(term.load(SeqCst)) {
-                    unlink(&config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
+                    unlink(config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
 
                     exit(0);
                 }
