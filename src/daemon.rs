@@ -8,7 +8,7 @@ use std::process::exit;
 use std::string::FromUtf8Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::Ordering::{Relaxed, SeqCst};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -179,7 +179,7 @@ pub fn daemon_main(cmd: Cli) {
             }
 
             loop {
-                if(term.load(SeqCst)) {
+                if(term.load(Relaxed)) {
                     unlink(config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
 
                     exit(0);
