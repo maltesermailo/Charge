@@ -121,8 +121,8 @@ pub fn daemon_main(cmd: Cli) {
     println!("Config socket path: {}", config.socket_path);
 
     let term = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))?;
-    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))?;
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term)).expect("signal handling done wrong");
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term)).expect("signal handling done wrong");
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
@@ -176,7 +176,7 @@ pub fn daemon_main(cmd: Cli) {
 
             loop {
                 if(term.load(SeqCst)) {
-                    unlink(&config.socket_path).expect("We're shutting down, so if unlink fails, that's not so bad.");
+                    unlink(&config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
 
                     exit(0);
                 }

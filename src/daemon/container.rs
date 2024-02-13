@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct State {
     #[serde(rename = "ociVersion")]
     pub version: String,
