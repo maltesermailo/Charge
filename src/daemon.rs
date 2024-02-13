@@ -58,6 +58,7 @@ fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
 }
 
 fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
+    println!("State {}", &state);
     let state = serde_json::from_str(state.as_str());
 
     return state;
