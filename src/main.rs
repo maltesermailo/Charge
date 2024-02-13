@@ -25,7 +25,7 @@ pub struct Cli {
     pid: u32,
     #[arg(long, short, required = false, default_value = "noid")]
     id: String,
-    #[arg(long = "containerName", short, required = true)]
+    #[arg(long = "containerName", short, required = false, default_value = "")]
     container_name: String
 }
 
