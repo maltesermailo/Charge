@@ -8,20 +8,17 @@ use std::process::exit;
 use std::string::FromUtf8Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::atomic::Ordering::{Relaxed, SeqCst};
+use std::sync::atomic::Ordering::SeqCst;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use crate::{Cli, config};
-use nix::sys::socket::{self, accept, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, socket, SockFlag, SockType, UnixAddr};
+use nix::sys::socket::{self, accept4, AddressFamily, bind, ControlMessageOwned, listen, MsgFlags, RecvMsg, socket, SockFlag, SockType, UnixAddr};
 use nix::{cmsg_space, Error};
 use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult, unlink};
-use signal_hook::consts::TERM_SIGNALS;
-use signal_hook::iterator::exfiltrator::SignalOnly;
-use signal_hook::iterator::SignalsInfo;
 use tokio::signal::unix::{signal, SignalKind};
 use crate::daemon::container::{ContainerProcessState, State};
 
@@ -127,7 +124,9 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
-    let mut signals = SignalsInfo::<SignalOnly>::new(TERM_SIGNALS).unwrap();
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term)).expect("signal handling done wrong");
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term)).expect("signal handling done wrong");
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
@@ -162,22 +161,6 @@ pub fn daemon_main(cmd: Cli) {
         }
     }*/
 
-    //Spawn signal thread for systemd
-    thread::spawn(move || async move {
-        for signal in &mut signals {
-            // Will print info about signal + where it comes from.
-            match signal {
-                _ => { // These are all the ones left
-                    eprintln!("Terminating");
-                    unlink(config.socket_path.as_str()).expect("Unlink failed");
-
-                    exit(0);
-                    break;
-                }
-            }
-        }
-    });
-
     //Maybe socket for CLI
     match result_socket {
         Ok(socket) => {
@@ -196,9 +179,20 @@ pub fn daemon_main(cmd: Cli) {
             }
 
             loop {
-                let sock_result = accept(socket.as_raw_fd());
+                if(term.load(SeqCst)) {
+                    unlink(config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
+
+                    exit(0);
+                }
+
+                let sock_result = accept4(socket.as_raw_fd(), SockFlag::SOCK_NONBLOCK);
 
                 if let Err(errno) = sock_result {
+                    if(errno == Errno::EWOULDBLOCK) {
+                        sleep(Duration::from_millis(50));
+                        continue;
+                    }
+
                     println!("Couldn't accept on socket, aborting. Error: {}", errno);
                     panic!("test");
                 }
