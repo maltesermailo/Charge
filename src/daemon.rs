@@ -19,6 +19,9 @@ use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult, unlink};
+use signal_hook::consts::TERM_SIGNALS;
+use signal_hook::iterator::SignalsInfo;
+use signal_hook::iterator::exfiltrator::WithOrigin;
 use tokio::signal::unix::{signal, SignalKind};
 use crate::daemon::container::{ContainerProcessState, State};
 
@@ -124,9 +127,7 @@ pub fn daemon_main(cmd: Cli) {
     println!("Starting Charge daemon...");
     println!("Config socket path: {}", config.socket_path);
 
-    let term = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term)).expect("signal handling done wrong");
-    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term)).expect("signal handling done wrong");
+    let mut signals = SignalsInfo::<WithOrigin>::new(TERM_SIGNALS)?;
 
     let unix_addr = UnixAddr::new(config.socket_path.as_str()).unwrap();
 
@@ -161,6 +162,22 @@ pub fn daemon_main(cmd: Cli) {
         }
     }*/
 
+    //Spawn signal thread for systemd
+    thread::spawn(move || async move {
+        for info in &mut signals {
+            // Will print info about signal + where it comes from.
+            match info.signal {
+                term_sig => { // These are all the ones left
+                    eprintln!("Terminating");
+                    unlink(config.socket_path.as_str()).expect("Unlink failed");
+
+                    exit(0);
+                    break;
+                }
+            }
+        }
+    });
+
     //Maybe socket for CLI
     match result_socket {
         Ok(socket) => {
@@ -179,12 +196,6 @@ pub fn daemon_main(cmd: Cli) {
             }
 
             loop {
-                if(term.load(Relaxed)) {
-                    unlink(config.socket_path.as_str()).expect("We're shutting down, so if unlink fails, that's not so bad.");
-
-                    exit(0);
-                }
-
                 let sock_result = accept(socket.as_raw_fd());
 
                 if let Err(errno) = sock_result {
