@@ -17,6 +17,7 @@ use nix::sys::socket::{self, accept4, AddressFamily, bind, ControlMessageOwned, 
 use nix::{cmsg_space, Error};
 use nix::errno::Errno;
 use nix::errno::Errno::ENODATA;
+use nix::fcntl::{fcntl, FcntlArg, OFlag};
 use nix::libc::{iovec as IoVec, size_t};
 use nix::unistd::{dup, execvp, fork, ForkResult, unlink};
 use tokio::signal::unix::{signal, SignalKind};
@@ -167,6 +168,10 @@ pub fn daemon_main(cmd: Cli) {
     //Maybe socket for CLI
     match result_socket {
         Ok(socket) => {
+            let flags = fcntl(socket.as_raw_fd(), FcntlArg::F_GETFL).expect("Error while getting flags on socket");
+            let new_flags = OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK;
+            fcntl(socket.as_raw_fd(), FcntlArg::F_SETFL(new_flags)).expect("Error while setting flags on socket");
+
             let error = bind(socket.as_raw_fd(), &unix_addr).err();
 
             if let Some(errno) = error {
