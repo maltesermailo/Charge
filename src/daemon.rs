@@ -66,7 +66,7 @@ fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
 }
 
 fn fork_and_run(fd: RawFd, state: String) {
-    let state = state.trim().parse().unwrap();
+    let state = state.trim().trim_matches(char::from(0)).parse().unwrap();
 
     //Parse container state
     let state = parse_state(state).unwrap_or_else(|err| {
