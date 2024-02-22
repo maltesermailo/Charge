@@ -87,7 +87,7 @@ pub fn supervisor_main(cmd: Cli) {
         }
     });
 
-    listener_thread_main(tx, running, raw_fd);
+    unsafe { listener_thread_main(tx, running, raw_fd); }
 
     println!("Shutting down supervisor...");
 }
