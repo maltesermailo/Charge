@@ -23,6 +23,8 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
 
         unsafe {
+            println!("Waiting for notif.");
+
             let result = receive_notif(raw_fd, seccomp_notif_uninit.as_mut_ptr()).unwrap_or_else(|error| {
                 println!("Couldn't read notif with error {}", error);
 
@@ -37,7 +39,7 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
                 panic!("ERROR");
             });
 
-            //println!("Received notif");
+            println!("Received notif");
 
             if result == -1 {
                 continue;
