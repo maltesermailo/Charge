@@ -32,12 +32,14 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
             let fcntl_result = fcntl(raw_fd, F_GETFD);
 
             if let Err(e) = fcntl_result {
+                println!("Error while reading file descriptor: {}", e);
                 return;
             }
 
             let poll_result = poll(&mut pollfds, 50);
 
             if let Err(e) = poll_result {
+                println!("Error while polling file descriptor: {}", e);
                 if(e == Errno::UnknownErrno) {
                     continue;
                 }
