@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use nix::errno::Errno;
 use nix::{ioctl_read, ioctl_readwrite, ioctl_write_ptr, libc, request_code_read, request_code_readwrite};
+use nix::poll::{poll, PollFd, PollFlags};
 use nix::libc::{ioctl, SECCOMP_GET_NOTIF_SIZES, seccomp_notif_resp, SYS_seccomp};
 use crate::supervisor::event::SyscallEvent;
 use crate::supervisor::seccomp_notif;
@@ -19,11 +20,21 @@ ioctl_readwrite!(receive_notif, b'!', SECCOMP_IOCTL_NOTIF_RECV, seccomp_notif);
 ioctl_readwrite!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp);
 
 pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
+    let pollfd = PollFd::new(&raw_fd, PollFlags::all());
+
     while running.load(Ordering::SeqCst) {
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
 
         unsafe {
-            println!("Waiting for notif.");
+            let poll_result = poll(&mut *[pollfd], 50);
+
+            if let Err(e) = poll_result {
+                if(e == Errno::UnknownErrno) {
+                    continue;
+                }
+
+                return;
+            }
 
             let result = receive_notif(raw_fd, seccomp_notif_uninit.as_mut_ptr()).unwrap_or_else(|error| {
                 println!("Couldn't read notif with error {}", error);
@@ -38,8 +49,6 @@ pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, 
 
                 panic!("ERROR");
             });
-
-            println!("Received notif");
 
             if result == -1 {
                 continue;
