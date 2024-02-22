@@ -22,12 +22,13 @@ ioctl_readwrite!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp)
 pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
     let fd = BorrowedFd::borrow_raw(raw_fd);
     let pollfd = PollFd::new(&fd, PollFlags::all());
+    let mut pollfds = [pollfd];
 
     while running.load(Ordering::SeqCst) {
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
 
         unsafe {
-            let poll_result = poll(&mut *[pollfd], 50);
+            let poll_result = poll(&mut pollfds, 50);
 
             if let Err(e) = poll_result {
                 if(e == Errno::UnknownErrno) {
