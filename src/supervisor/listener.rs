@@ -4,7 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use nix::errno::Errno;
-use nix::{ioctl_read, ioctl_readwrite, ioctl_write_ptr, libc, request_code_read, request_code_readwrite};
+use nix::{fcntl, ioctl_read, ioctl_readwrite, ioctl_write_ptr, libc, request_code_read, request_code_readwrite};
+use nix::fcntl::{F_GETFD, fcntl};
 use nix::poll::{poll, PollFd, PollFlags};
 use nix::libc::{ioctl, SECCOMP_GET_NOTIF_SIZES, seccomp_notif_resp, SYS_seccomp};
 use crate::supervisor::event::SyscallEvent;
@@ -28,6 +29,12 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
 
         unsafe {
+            let fcntl_result = fcntl(raw_fd, F_GETFD);
+
+            if let Err(e) = fcntl_result {
+                return;
+            }
+
             let poll_result = poll(&mut pollfds, 50);
 
             if let Err(e) = poll_result {
