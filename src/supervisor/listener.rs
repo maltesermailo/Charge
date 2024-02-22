@@ -1,5 +1,5 @@
 use std::mem::MaybeUninit;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, RawFd};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -19,8 +19,9 @@ ioctl_readwrite!(receive_notif, b'!', SECCOMP_IOCTL_NOTIF_RECV, seccomp_notif);
 //SECCOMP_IOCTL_NOTIF_SEND
 ioctl_readwrite!(send_notif, b'!', SECCOMP_IOCTL_NOTIF_SEND, seccomp_notif_resp);
 
-pub fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
-    let pollfd = PollFd::new(&raw_fd, PollFlags::all());
+pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<AtomicBool>, raw_fd: RawFd) {
+    let fd = BorrowedFd::borrow_raw(raw_fd);
+    let pollfd = PollFd::new(&fd, PollFlags::all());
 
     while running.load(Ordering::SeqCst) {
         let mut seccomp_notif_uninit: MaybeUninit<seccomp_notif> = unsafe { MaybeUninit::zeroed() };
