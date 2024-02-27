@@ -98,6 +98,8 @@ pub fn supervisor_main(cmd: Cli) {
 
     //Spawn container check thread
     thread::spawn(move || async move {
+        println!("Starting container check thread.");
+
         if(!containerNameClone.eq_ignore_ascii_case("unknown")) {
             let client = Client::try_default().await.unwrap();
 

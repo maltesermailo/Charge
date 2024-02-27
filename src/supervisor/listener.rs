@@ -51,7 +51,7 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
 
             if let Ok(results) = poll_result {
                 if results > 0 {
-                    println!("Poll returned: {:?}", pollfd.revents().unwrap())
+                    //println!("Poll returned: {:?}", pollfd.revents().unwrap())
                 }
             }
 
@@ -76,7 +76,7 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
 
             let date = SystemTime::now();
 
-            println!("[{:?}] received notif", date);
+            //println!("[{:?}] received notif", date);
 
             let seccomp_notif = seccomp_notif_uninit.assume_init();
 
@@ -105,7 +105,7 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
                 return -1;
             });
 
-            println!("Accepted notif");
+            //println!("Accepted notif");
         }
     }
 }
