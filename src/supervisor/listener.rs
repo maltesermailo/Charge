@@ -1,8 +1,10 @@
+use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::os::fd::{BorrowedFd, RawFd};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::time::SystemTime;
 use nix::errno::Errno;
 use nix::{fcntl, ioctl_read, ioctl_readwrite, ioctl_write_ptr, libc, request_code_read, request_code_readwrite};
 use nix::fcntl::{F_GETFD, fcntl};
@@ -47,6 +49,12 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
                 return;
             }
 
+            if let Ok(results) = poll_result {
+                if results > 0 {
+                    println!("Poll returned: {:?}", pollfd.revents().unwrap())
+                }
+            }
+
             let result = receive_notif(raw_fd, seccomp_notif_uninit.as_mut_ptr()).unwrap_or_else(|error| {
                 println!("Couldn't read notif with error {}", error);
 
@@ -62,8 +70,13 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
             });
 
             if result == -1 {
+                println!("Test");
                 continue;
             }
+
+            let date = SystemTime::now();
+
+            println!("[{:?}] received notif", date);
 
             let seccomp_notif = seccomp_notif_uninit.assume_init();
 
@@ -91,6 +104,8 @@ pub unsafe fn listener_thread_main(tx: Sender<SyscallEvent>, running: Arc<Atomic
 
                 return -1;
             });
+
+            println!("Accepted notif");
         }
     }
 }

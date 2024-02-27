@@ -3,15 +3,22 @@ mod listener;
 mod event;
 
 use std::os::fd::{RawFd};
+use std::process::exit;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
 use nix::libc;
-use nix::libc::{c_int, SECCOMP_GET_NOTIF_SIZES, seccomp_notif_sizes, SYS_seccomp};
+use nix::libc::{c_int, pid_t, SECCOMP_GET_NOTIF_SIZES, seccomp_notif_sizes, SYS_seccomp};
+use nix::sys::signal::kill;
+use nix::unistd::Pid;
 use crate::Cli;
 use crate::supervisor::listener::listener_thread_main;
 use crate::supervisor::log_writer::log_write_thread_main;
 use tokio::signal::unix::{signal, SignalKind};
+use k8s_openapi::api::core::v1::Pod;
+use kube::{Api, Client};
 
 #[repr(C)]
 pub struct seccomp_data {
@@ -68,10 +75,12 @@ pub fn supervisor_main(cmd: Cli) {
     let running = Arc::new(AtomicBool::new(true));
     let running_log_write = Arc::clone(&running);
     let running_signal = Arc::clone(&running);
+    let running_container = Arc::clone(&running);
 
     let pid = cmd.pid;
     let id = cmd.id;
     let containerName = cmd.container_name;
+    let containerNameClone = containerName.clone();
 
     //Spawn log writer thread
     thread::spawn(move || {
@@ -84,6 +93,51 @@ pub fn supervisor_main(cmd: Cli) {
             stream.recv().await;
 
             running_signal.store(false, Ordering::SeqCst);
+        }
+    });
+
+    //Spawn container check thread
+    thread::spawn(move || async move {
+        if(!containerNameClone.eq_ignore_ascii_case("unknown")) {
+            let client = Client::try_default().await?;
+
+            let api: Api<Pod> = Api::default_namespaced(client);
+            loop {
+                if(!running_container.load(Ordering::SeqCst)) {
+                    exit(0);
+                }
+
+                let result = api.get_status(containerNameClone.as_str()).await;
+
+                match result {
+                    Ok(pod) => {
+                        if(pod.status.is_some()) {
+                            //Pod is running
+                            sleep(Duration::from_secs(1));
+                            continue;
+                        }
+                        running_container.store(false, Ordering::SeqCst);
+                    },
+                    Err(e) => {
+                        running_container.store(false, Ordering::SeqCst);
+                    }
+                }
+            }
+        } else {
+            loop {
+                if(!running_container.load(Ordering::SeqCst)) {
+                    exit(0);
+                }
+
+                //Check whether PID is still running
+                let pidResult = kill(Pid::from_raw(pid as pid_t), None);
+
+                if(pidResult.is_err()) {
+                    running_container.store(false, Ordering::SeqCst);
+                }
+
+                sleep(Duration::from_millis(50));
+            }
         }
     });
 
