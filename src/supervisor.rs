@@ -132,9 +132,10 @@ pub fn supervisor_main(cmd: Cli) {
                 }
             }
         } else {
+            println!("Unknown container... checking pid.");
             loop {
                 if(!running_container.load(Ordering::SeqCst)) {
-                    println!("Exiting supervisor");
+                    println!("Exiting supervisor...");
                     exit(0);
                 }
 
