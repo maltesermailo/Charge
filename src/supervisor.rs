@@ -96,7 +96,7 @@ pub fn supervisor_main(cmd: Cli) {
 
                 running_signal.store(false, Ordering::SeqCst);
             }
-        }
+        };
         block_on(future);
     });
 
