@@ -58,7 +58,7 @@ fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
     return String::from_utf8(buf);
 }
 
-fn parse_state(state: String) -> serde_json::Result<ContainerProcessState> {
+fn parse_state(state: &String) -> serde_json::Result<ContainerProcessState> {
     println!("State {}", state.as_str());
     let state = serde_json::from_str(state.as_str());
 
@@ -69,7 +69,7 @@ fn fork_and_run(fd: RawFd, state: String) {
     let state = state.trim().trim_matches(char::from(0)).parse().unwrap();
 
     //Parse container state
-    let state = parse_state(state).unwrap_or_else(|err| {
+    let state = parse_state(&state).unwrap_or_else(|err| {
         println!("error parsing state: {}", err);
 
         let pid = state.parse().unwrap_or_else(|err| 0);
