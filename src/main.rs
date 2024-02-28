@@ -30,7 +30,7 @@ pub struct Cli {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error>> {
     let cli = Cli::parse();
 
     if cli.daemon {
@@ -40,4 +40,6 @@ async fn main() {
         //Switch into supervisor.rs and parse rest arguments
         supervisor_main(cli)
     }
+
+    Ok(())
 }
