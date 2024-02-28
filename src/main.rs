@@ -30,7 +30,7 @@ pub struct Cli {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     if cli.daemon {
