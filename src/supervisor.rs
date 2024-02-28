@@ -20,6 +20,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{Api, Client};
 use futures::executor::block_on;
+use tokio::task;
 
 #[repr(C)]
 pub struct seccomp_data {
@@ -101,38 +102,35 @@ pub fn supervisor_main(cmd: Cli) {
     });*/
 
     //Spawn container check thread
-    thread::spawn(move || {
+    task::spawn(async move {
         println!("Starting container check thread.");
 
         if(!containerNameClone.eq_ignore_ascii_case("unknown")) {
-            let future = async move {
-                let client = Client::try_default().await.unwrap();
+            let client = Client::try_default().await.unwrap();
 
-                let api: Api<Pod> = Api::default_namespaced(client);
-                loop {
-                    if(!running_container.load(Ordering::SeqCst)) {
-                        println!("Exiting supervisor...");
-                        exit(0);
-                    }
+            let api: Api<Pod> = Api::default_namespaced(client);
+            loop {
+                if(!running_container.load(Ordering::SeqCst)) {
+                    println!("Exiting supervisor...");
+                    exit(0);
+                }
 
-                    let result = api.get_status(containerNameClone.as_str()).await;
+                let result = api.get_status(containerNameClone.as_str()).await;
 
-                    match result {
-                        Ok(pod) => {
-                            if(pod.status.is_some()) {
-                                //Pod is running
-                                sleep(Duration::from_secs(1));
-                                continue;
-                            }
-                            running_container.store(false, Ordering::SeqCst);
-                        },
-                        Err(e) => {
-                            running_container.store(false, Ordering::SeqCst);
+                match result {
+                    Ok(pod) => {
+                        if(pod.status.is_some()) {
+                            //Pod is running
+                            sleep(Duration::from_secs(1));
+                            continue;
                         }
+                        running_container.store(false, Ordering::SeqCst);
+                    },
+                    Err(e) => {
+                        running_container.store(false, Ordering::SeqCst);
                     }
                 }
-            };
-            block_on(future);
+            }
         } else {
             loop {
                 if(!running_container.load(Ordering::SeqCst)) {
