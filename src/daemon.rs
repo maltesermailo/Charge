@@ -72,16 +72,18 @@ fn fork_and_run(fd: RawFd, state: String) {
     let state = parse_state(state).unwrap_or_else(|err| {
         println!("error parsing state: {}", err);
 
+        let pid = state.parse().unwrap_or_else(|err| 0);
+
         ContainerProcessState {
             version: "unknown".to_string(),
             fds: Default::default(),
-            pid: 0,
+            pid: pid,
             metadata: Default::default(),
             state: State {
                 version: "".to_string(),
                 id: Default::default(),
                 status: "".to_string(),
-                pid: 0,
+                pid: pid,
                 bundle: "".to_string(),
                 annotations: Default::default(),
             },
