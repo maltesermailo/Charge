@@ -89,7 +89,7 @@ pub fn supervisor_main(cmd: Cli) {
     });
 
     //Spawn signal thread for systemd
-    thread::spawn(move || {
+    /*thread::spawn(move || {
         let future = async move {
             loop {
                 stream.recv().await;
@@ -98,7 +98,7 @@ pub fn supervisor_main(cmd: Cli) {
             }
         };
         block_on(future);
-    });
+    });*/
 
     //Spawn container check thread
     thread::spawn(move || {
@@ -111,6 +111,7 @@ pub fn supervisor_main(cmd: Cli) {
                 let api: Api<Pod> = Api::default_namespaced(client);
                 loop {
                     if(!running_container.load(Ordering::SeqCst)) {
+                        println!("Exiting supervisor...");
                         exit(0);
                     }
 
@@ -135,6 +136,7 @@ pub fn supervisor_main(cmd: Cli) {
         } else {
             loop {
                 if(!running_container.load(Ordering::SeqCst)) {
+                    println!("Exiting supervisor");
                     exit(0);
                 }
 
