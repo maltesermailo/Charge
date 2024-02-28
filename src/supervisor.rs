@@ -20,6 +20,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{Api, Client};
 use futures::executor::block_on;
+use nix::sys::wait::{waitpid, WaitPidFlag};
 use tokio::task;
 
 #[repr(C)]
@@ -133,20 +134,24 @@ pub fn supervisor_main(cmd: Cli) {
             }
         } else {
             println!("Unknown container... checking pid.");
-            loop {
-                if(!running_container.load(Ordering::SeqCst)) {
-                    println!("Exiting supervisor...");
-                    exit(0);
+            unsafe {
+                loop {
+                    if (!running_container.load(Ordering::SeqCst)) {
+                        println!("Exiting supervisor...");
+                        exit(0);
+                    }
+
+                    waitpid(Pid::from_raw(pid as pid_t), Some(WaitPidFlag::WNOHANG));
+
+                    //Check whether PID is still running
+                    let pidResult = kill(Pid::from_raw(pid as pid_t), None);
+
+                    if (pidResult.is_err()) {
+                        running_container.store(false, Ordering::SeqCst);
+                    }
+
+                    sleep(Duration::from_millis(50));
                 }
-
-                //Check whether PID is still running
-                let pidResult = kill(Pid::from_raw(pid as pid_t), None);
-
-                if(pidResult.is_err()) {
-                    running_container.store(false, Ordering::SeqCst);
-                }
-
-                sleep(Duration::from_millis(50));
             }
         }
     });
