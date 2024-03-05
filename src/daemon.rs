@@ -30,15 +30,10 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
 
     let msg: RecvMsg<'_, '_, UnixAddr> = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
 
-    let buf = read_string(&msg);
-    let mut state = String::from_utf8(buf);
+    let state = read_string(&msg);
 
     if let Err(ref err) = state {
-        //Might be a pid, check that first.
-        if(buf.len() == 4) {
-            let pid = i32::from_ne_bytes(buf.try_into().unwrap());
-            state = Ok(pid.to_string());
-        }
+        return Err(ENODATA);
     }
 
     let state = state.unwrap();
@@ -52,7 +47,7 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
     Err(Errno::ENODATA)
 }
 
-fn read_string(msg: &RecvMsg<UnixAddr>) -> Vec<u8> {
+fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
     let bufsize = msg.bytes;
     let mut buf = vec![0u8; bufsize];
 
@@ -60,7 +55,20 @@ fn read_string(msg: &RecvMsg<UnixAddr>) -> Vec<u8> {
         buf.write(iov).expect("Works or abort");
     }
 
-    return buf;
+    if(buf.len() == 8) {
+        let pid = i32::from_ne_bytes(buf.try_into().unwrap());
+        let mut state = Ok(pid.to_string());
+
+        return state;
+    } else {
+        let mut state = String::from_utf8(buf.clone());
+
+        if let Err(err) = state {
+            return Err(err);
+        }
+
+        return state;
+    }
 }
 
 fn parse_state(state: &String) -> serde_json::Result<ContainerProcessState> {
