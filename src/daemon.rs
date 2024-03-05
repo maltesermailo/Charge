@@ -36,8 +36,8 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
     if let Err(err) = state {
         //Might be a pid, check that first.
         if(buf.len() == 4) {
-            let pid = i32::from_ne_bytes(buf);
-            state = Ok(String::from(pid));
+            let pid = i32::from_ne_bytes(buf.try_into().unwrap());
+            state = Ok(pid.to_string());
         }
     }
 
