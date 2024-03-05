@@ -30,10 +30,15 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
 
     let msg: RecvMsg<'_, '_, UnixAddr> = socket::recvmsg(fd, &mut iov, Some(&mut cmsg_space), MsgFlags::empty())?;
 
-    let state = read_string(&msg);
+    let buf = read_string(&msg);
+    let mut state = String::from_utf8(buf);
 
     if let Err(err) = state {
-        return Err(Error::ENODATA);
+        //Might be a pid, check that first.
+        if(buf.len() == 4) {
+            let pid = i32::from_ne_bytes(buf);
+            state = Ok(String::from(pid));
+        }
     }
 
     let state = state.unwrap();
@@ -47,7 +52,7 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
     Err(Errno::ENODATA)
 }
 
-fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
+fn read_string(msg: &RecvMsg<UnixAddr>) -> Vec<u8> {
     let bufsize = msg.bytes;
     let mut buf = vec![0u8; bufsize];
 
@@ -55,7 +60,7 @@ fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
         buf.write(iov).expect("Works or abort");
     }
 
-    return String::from_utf8(buf);
+    return buf;
 }
 
 fn parse_state(state: &String) -> serde_json::Result<ContainerProcessState> {
@@ -216,6 +221,10 @@ pub fn daemon_main(cmd: Cli) {
 
                             if let Err(errno) = seccompfd {
                                 println!("Error: {}", errno);
+
+                                if(errno == ENODATA) {
+
+                                }
 
                                 return;
                             }

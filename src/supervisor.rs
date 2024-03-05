@@ -22,6 +22,7 @@ use kube::{Api, Client};
 use futures::executor::block_on;
 use nix::sys::wait::{waitpid, WaitPidFlag};
 use tokio::task;
+use log::info;
 
 #[repr(C)]
 pub struct seccomp_data {
@@ -141,7 +142,9 @@ pub fn supervisor_main(cmd: Cli) {
                         exit(0);
                     }
 
-                    waitpid(Pid::from_raw(pid as pid_t), Some(WaitPidFlag::WNOHANG));
+                    info!("Waiting for PID... {}", pid as pid_t);
+                    let wait = waitpid(Pid::from_raw(pid as pid_t), Some(WaitPidFlag::WNOHANG));
+                    info!("Result: {:?}", wait);
 
                     //Check whether PID is still running
                     let pidResult = kill(Pid::from_raw(pid as pid_t), None);
@@ -149,6 +152,8 @@ pub fn supervisor_main(cmd: Cli) {
                     if (pidResult.is_err()) {
                         running_container.store(false, Ordering::SeqCst);
                     }
+
+                    info!("PID Result: {}", pidResult.is_err());
 
                     sleep(Duration::from_millis(50));
                 }
