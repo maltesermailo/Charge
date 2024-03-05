@@ -33,7 +33,7 @@ fn receive_fd(fd: RawFd) -> nix::Result<(RawFd, String)> {
     let buf = read_string(&msg);
     let mut state = String::from_utf8(buf);
 
-    if let Err(err) = state {
+    if let Err(ref err) = state {
         //Might be a pid, check that first.
         if(buf.len() == 4) {
             let pid = i32::from_ne_bytes(buf.try_into().unwrap());
