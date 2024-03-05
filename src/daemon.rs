@@ -56,12 +56,12 @@ fn read_string(msg: &RecvMsg<UnixAddr>) -> Result<String, FromUtf8Error> {
     }
 
     if(buf.len() == 8) {
-        let pid = i32::from_ne_bytes(buf.try_into().unwrap());
+        let pid = i32::from_ne_bytes(buf[4..].try_into().unwrap());
         let mut state = Ok(pid.to_string());
 
         return state;
     } else {
-        let mut state = String::from_utf8(buf.clone());
+        let mut state = String::from_utf8(buf);
 
         if let Err(err) = state {
             return Err(err);
